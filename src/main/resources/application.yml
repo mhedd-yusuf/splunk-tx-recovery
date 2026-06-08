@@ -1,0 +1,78 @@
+spring:
+  application:
+    name: splunk-tx-recovery
+  datasource:
+    url: jdbc:oracle:thin:@//localhost:1521/FREEPDB1
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: oracle.jdbc.OracleDriver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      pool-name: tx-recovery-pool
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    # Oracle defaults: schema = the user. Override here if needed.
+
+splunk:
+  base-url: https://localhost:8089
+  token: ${SPLUNK_TOKEN}
+  poll-interval: 1s
+  poll-timeout: 60s
+  trust-self-signed: true   # dev only — see SplunkClientConfig
+  spl-query: |
+    search index=app_logs sourcetype=transactions
+    earliest=${earliest} latest=${latest}
+    | table id, _time, amount, status, _raw
+
+recovery:
+  schedule-cron: "0 */5 * * * *"
+  overlap-window: 5m
+  batch-size: 1000
+  lock-at-most-for: 10m
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when-authorized
+      probes:
+        enabled: true
+  metrics:
+    tags:
+      application: ${spring.application.name}
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
+resilience4j:
+  retry:
+    instances:
+      splunk:
+        max-attempts: 3
+        wait-duration: 500ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        retry-exceptions:
+          - org.springframework.web.reactive.function.client.WebClientResponseException
+          - java.io.IOException
+          - java.util.concurrent.TimeoutException
+  circuitbreaker:
+    instances:
+      splunk:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 30s
+        permitted-number-of-calls-in-half-open-state: 3
+
+logging:
+  level:
+    com.example.txrecovery: INFO
+    org.springframework.jdbc.core.JdbcTemplate: INFO

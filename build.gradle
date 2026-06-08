@@ -1,0 +1,108 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.4.3'
+    id 'io.spring.dependency-management' version '1.1.7'
+}
+
+group   = 'com.example'
+version = '0.1.0-SNAPSHOT'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    resilience4jVersion = '2.2.0'
+    shedlockVersion     = '5.16.0'
+    logstashLogbackVersion = '8.0'
+    mockwebserverVersion = '4.12.0'
+    ojdbcVersion        = '23.6.0.24.10'
+}
+
+// Spring Boot 3.4 pins Mockito 5.14 / ByteBuddy 1.15 which do not know JDK 25
+// bytecode. Override so unit tests pass on JDK 25 (irrelevant if running on 21).
+dependencyManagement {
+    dependencies {
+        dependency 'org.mockito:mockito-core:5.18.0'
+        dependency 'org.mockito:mockito-junit-jupiter:5.18.0'
+        dependency 'net.bytebuddy:byte-buddy:1.17.6'
+        dependency 'net.bytebuddy:byte-buddy-agent:1.17.6'
+    }
+}
+
+dependencies {
+    // Web + WebClient (WebFlux is included only for WebClient; the server is reactive Netty)
+    implementation 'org.springframework.boot:spring-boot-starter-webflux'
+
+    // Persistence: Spring Data JDBC (no JPA)
+    implementation 'org.springframework.boot:spring-boot-starter-data-jdbc'
+    implementation 'org.springframework.boot:spring-boot-starter-jdbc'
+
+    // Validation for @ConfigurationProperties
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+
+    // Actuator + Prometheus
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'io.micrometer:micrometer-registry-prometheus'
+
+    // Oracle JDBC
+    implementation "com.oracle.database.jdbc:ojdbc11:${ojdbcVersion}"
+
+    // Flyway with Oracle support (Oracle moved to a separate module in Flyway 10)
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'org.flywaydb:flyway-database-oracle'
+
+    // Resilience4j
+    implementation "io.github.resilience4j:resilience4j-spring-boot3:${resilience4jVersion}"
+    implementation "io.github.resilience4j:resilience4j-reactor:${resilience4jVersion}"
+
+    // ShedLock
+    implementation "net.javacrumbs.shedlock:shedlock-spring:${shedlockVersion}"
+    implementation "net.javacrumbs.shedlock:shedlock-provider-jdbc-template:${shedlockVersion}"
+
+    // Structured JSON logging
+    implementation "net.logstash.logback:logstash-logback-encoder:${logstashLogbackVersion}"
+
+    // ConfigurationProperties IDE/metadata support
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+
+    // -------- Test --------
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'io.projectreactor:reactor-test'
+    testImplementation "com.squareup.okhttp3:mockwebserver:${mockwebserverVersion}"
+    testImplementation 'org.testcontainers:junit-jupiter:1.20.4'
+    testImplementation 'org.testcontainers:oracle-free:1.20.4'
+}
+
+// By default `test` runs ONLY unit tests; integration tests tagged
+// @Tag("integration") are heavy (Testcontainers Oracle XE: 1-2 min cold start)
+// and are gated behind a separate `integrationTest` task.
+test {
+    useJUnitPlatform {
+        excludeTags 'integration'
+    }
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+    }
+}
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs @Tag("integration") tests (requires Docker for Testcontainers).'
+    group = 'verification'
+    useJUnitPlatform {
+        includeTags 'integration'
+    }
+    shouldRunAfter test
+    testLogging {
+        events 'passed', 'skipped', 'failed'
+        showStandardStreams = true
+    }
+}
+
+check.dependsOn 'test'   // integrationTest is opt-in via `gradle integrationTest`

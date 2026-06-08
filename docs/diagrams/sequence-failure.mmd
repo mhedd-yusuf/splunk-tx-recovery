@@ -1,0 +1,41 @@
+%% Failure modes. In every case the watermark is NOT advanced and the next
+%% scheduled run re-reads the same window. Combined with MERGE-based dedup,
+%% this delivers at-least-once read / exactly-once write semantics.
+sequenceDiagram
+    autonumber
+    participant Orch as RecoveryService
+    participant WMS as WatermarkService
+    participant Splunk as Splunk REST
+    participant DB as Oracle
+
+    rect rgb(255, 245, 245)
+        note over Orch,DB: A. Splunk 5xx (retried, then circuit-broken)
+        Orch->>Splunk: POST /jobs
+        Splunk-->>Orch: 503
+        Note over Orch: Resilience4j @Retry: 3 attempts, exp backoff
+        Splunk-->>Orch: 503
+        Splunk-->>Orch: 503
+        Orch--xWMS: throw — advance NOT called
+    end
+
+    rect rgb(255, 245, 245)
+        note over Orch,DB: B. Splunk job never finishes
+        Orch->>Splunk: POST /jobs
+        Splunk-->>Orch: sid
+        loop polling
+            Orch->>Splunk: GET /jobs/{sid}
+            Splunk-->>Orch: {isDone: false}
+        end
+        Note over Orch: deadline = pollTimeout elapsed
+        Orch--xWMS: SplunkTimeoutException — advance NOT called
+    end
+
+    rect rgb(255, 245, 245)
+        note over Orch,DB: C. MERGE fails
+        Orch->>Splunk: search succeeds
+        Splunk-->>Orch: results
+        Orch->>DB: MERGE INTO transactions
+        DB-->>Orch: SQL error
+        Note over Orch: failedCounter += received.size()
+        Orch--xWMS: throw — advance NOT called
+    end

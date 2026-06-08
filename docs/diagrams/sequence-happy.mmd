@@ -1,0 +1,45 @@
+%% Happy-path sequence of one scheduled run.
+sequenceDiagram
+    autonumber
+    participant Cron as Cron tick
+    participant Sched as RecoveryScheduler
+    participant SL as ShedLock
+    participant Orch as RecoveryService
+    participant WMS as WatermarkService
+    participant Splunk as Splunk REST
+    participant DB as Oracle
+
+    Cron->>Sched: @Scheduled fires
+    Sched->>SL: acquire lock
+    SL->>DB: INSERT/UPDATE shedlock
+    DB-->>SL: ok
+    SL-->>Sched: locked
+    Sched->>Orch: runOnce()
+
+    Orch->>WMS: nextWindow()
+    WMS->>DB: SELECT ts FROM watermark
+    DB-->>WMS: ts
+    WMS-->>Orch: [earliest, latest)
+
+    Orch->>Splunk: POST /services/search/jobs (spl, exec_mode=normal)
+    Splunk-->>Orch: sid
+
+    loop until isDone or timeout
+        Orch->>Splunk: GET /services/search/jobs/{sid}
+        Splunk-->>Orch: {isDone, dispatchState, resultCount}
+    end
+
+    Orch->>Splunk: GET /services/search/jobs/{sid}/results?output_mode=json
+    Splunk-->>Orch: results JSON
+    Orch->>Orch: SplunkResultParser → TransactionDto[]
+
+    Orch->>DB: MERGE INTO transactions (batch)
+    DB-->>Orch: per-row counts (1=inserted, 0=duplicate)
+
+    Orch->>WMS: advance(latest)
+    WMS->>DB: UPDATE watermark SET ts=latest
+    DB-->>WMS: ok
+    Orch-->>Sched: RecoveryRunSummary
+
+    Sched->>SL: release lock
+    SL->>DB: UPDATE shedlock SET lock_until=NOW()

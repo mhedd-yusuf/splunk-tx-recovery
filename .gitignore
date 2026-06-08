@@ -1,0 +1,35 @@
+build/
+.gradle/
+out/
+bin/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.project
+.classpath
+.settings/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Spring
+.springBeans
+
+# Gradle wrapper jar is committed
+!gradle/wrapper/gradle-wrapper.jar
+
+# Secrets / env
+.env
+.env.local

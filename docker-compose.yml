@@ -1,0 +1,82 @@
+# Local dev stack: Splunk (single instance) + Oracle Free (faststart).
+#
+# Start everything:
+#     docker compose up -d
+#
+# Oracle (gvenzl/oracle-free:latest-faststart):
+#   - listener:   localhost:1521
+#   - service:    FREEPDB1
+#   - SYS:        sys / oracle  (DB_PASSWORD below)
+#   - app user:   appuser / appuser  (DB_USER / DB_PASSWORD that the app uses)
+#   - first boot is ~30-60s. Subsequent boots are seconds (faststart preloads schema).
+#
+# Splunk (splunk/splunk:latest):
+#   - web UI:     http://localhost:8000  (admin / changeme-please)
+#   - mgmt API:   https://localhost:8089  (self-signed cert; the app trusts it via splunk.trust-self-signed=true)
+#   - first boot is ~60-90s while Splunk initializes.
+#
+# Get a Splunk bearer token (after Splunk is up):
+#     1) http://localhost:8000 -> Settings -> Tokens -> Enable Token Authentication
+#     2) New Token -> User: admin, Audience: tx-recovery, no expiry -> Copy the token
+#  OR via CLI:
+#     docker exec -it splunk /opt/splunk/bin/splunk login -auth admin:changeme-please
+#     docker exec -it splunk /opt/splunk/bin/splunk add token -name tx-recovery -user admin
+#
+# Run the app against this stack:
+#     export SPLUNK_TOKEN=<paste token here>
+#     export DB_USER=appuser
+#     export DB_PASSWORD=appuser
+#     ./gradlew bootRun
+
+services:
+
+  oracle:
+    image: gvenzl/oracle-free:latest-faststart
+    container_name: tx-recovery-oracle
+    ports:
+      - "1521:1521"
+    environment:
+      ORACLE_PASSWORD: oracle
+      APP_USER: appuser
+      APP_USER_PASSWORD: appuser
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh" ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - oracle-data:/opt/oracle/oradata
+
+  splunk:
+    # Pinned to 9.0.5 because newer Splunk bundles a MongoDB build that requires
+    # AVX, which Rosetta on Apple Silicon does NOT emulate — KVStore fails to
+    # start and token-auth (which lives in KVStore) is unusable. 9.0.5 bundles
+    # MongoDB 4.x and runs fine emulated. For production deployment on real
+    # x86_64 hosts, switch back to splunk/splunk:latest.
+    image: splunk/splunk:9.0.5
+    container_name: tx-recovery-splunk
+    ports:
+      - "8000:8000"   # web UI
+      - "8089:8089"   # management/REST API
+      - "8088:8088"   # HEC (optional, useful for seeding test events)
+    platform: linux/amd64
+    environment:
+      SPLUNK_START_ARGS: "--accept-license"
+      SPLUNK_PASSWORD: "changeme-please"
+      SPLUNK_HEC_TOKEN: "00000000-0000-0000-0000-000000000000"
+    healthcheck:
+      # NOTE: do not use -f — Splunk's /services/server/info always returns 401
+      # for anonymous requests. We just want to know the daemon is accepting
+      # TLS connections, not authenticate. -sS keeps it quiet, exit 0 on any HTTP response.
+      test: [ "CMD", "curl", "-sSk", "-o", "/dev/null", "https://localhost:8089/services/server/info" ]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - splunk-etc:/opt/splunk/etc
+      - splunk-var:/opt/splunk/var
+
+volumes:
+  oracle-data:
+  splunk-etc:
+  splunk-var:

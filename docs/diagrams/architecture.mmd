@@ -1,0 +1,44 @@
+%% Component / architecture view of splunk-tx-recovery.
+%% Edges show "calls" / "depends on", not data flow direction.
+graph TB
+    subgraph schedule["scheduling"]
+        Sched["RecoveryScheduler<br/>@Scheduled(cron) + @SchedulerLock"]
+    end
+
+    subgraph dom["domain.service (orchestration)"]
+        Orch["RecoveryService<br/>(orchestrator)"]
+        WMS["WatermarkService<br/>(window math)"]
+    end
+
+    subgraph splunk["adapter.splunk"]
+        SC["SplunkClient<br/>(WebClient, @Retry, @CircuitBreaker)"]
+        SQB["SplQueryBuilder"]
+        SRP["SplunkResultParser"]
+    end
+
+    subgraph persist["adapter.persistence"]
+        TR["TransactionRepository<br/>(Oracle MERGE)"]
+        WR["WatermarkRepository"]
+    end
+
+    subgraph obs["observability"]
+        Met["Micrometer<br/>counters + timer + gauge"]
+    end
+
+    subgraph ext["external systems"]
+        SP[("Splunk REST<br/>:8089")]
+        OR[("Oracle<br/>FREEPDB1")]
+    end
+
+    Sched --> Orch
+    Sched -.lock.-> OR
+    Orch --> WMS
+    Orch --> SQB
+    Orch --> SC
+    Orch --> TR
+    Orch --> Met
+    WMS --> WR
+    SC --> SRP
+    SC --> SP
+    TR --> OR
+    WR --> OR

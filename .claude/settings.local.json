@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(/usr/libexec/java_home -V)",
+      "Bash(java -version)",
+      "Bash(./gradlew --version)",
+      "Bash(./gradlew compileJava)",
+      "Bash(./gradlew build *)",
+      "Bash(./gradlew test *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(curl -sSk -u admin:changeme-please https://localhost:8089/services/authorization/tokens)",
+      "Bash(curl -sSk -u admin:changeme-please -X POST https://localhost:8089/services/authorization/tokens -d name=admin -d audience=tx-recovery-app -d not_before=+0d -d expires_on=+30d -d output_mode=json)",
+      "Bash(curl -sSk -u admin:changeme-please -X POST https://localhost:8089/services/authorization/tokens -d name=admin -d audience=tx-recovery-app -d not_before=+0d -d expires_on=+30d@d -d output_mode=json)",
+      "Bash(curl -sSk -u admin:changeme-please -X POST https://localhost:8089/services/authorization/tokens -d name=admin -d audience=tx-recovery-app -d output_mode=json)",
+      "Bash(export SPLUNK_TOKEN='eyJraWQiOiJzcGx1bmsuc2VjcmV0IiwiYWxnIjoiSFM1MTIiLCJ2ZXIiOiJ2MiIsInR0eXAiOiJzdGF0aWMifQ.eyJpc3MiOiJhZG1pbiBmcm9tIDk3OTFkZjc1NjhlNSIsInN1YiI6ImFkbWluIiwiYXVkIjoidHgtcmVjb3ZlcnktYXBwIiwiaWRwIjoiU3BsdW5rIiwianRpIjoiZjA5OGM1NGUyNzc1NzgzNjMyMzFkNzMzODU3MWU1OGI2MDZiZGY3YzBjNjlmOWNmOGI3NmZjOGYwMzdkYjY4NyIsImlhdCI6MTc4MTA4Njg5MSwiZXhwIjoxNzgzNjc4ODkxLCJuYnIiOjE3ODEwODY4OTF9.5piaJHz5cm8aDwNm4O8xYzm7vTbX_LShjq5RTOnxm5LievohcrQ9O_HhKjLg96ECOhjmr85GHh3wUvx9u-Ktpg' DB_USER=appuser DB_PASSWORD=appuser)",
+      "Bash(./gradlew bootRun)",
+      "Bash(echo \"PID=$!\")",
+      "Read(//private/tmp/**)",
+      "Bash(curl -s http://localhost:8080/actuator/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:8080/actuator/prometheus)",
+      "Bash(pkill -f \"TxRecoveryApplication\")",
+      "Bash(pkill -f \"bootRun\")",
+      "Bash(lsof -iTCP:8080 -sTCP:LISTEN)",
+      "Bash(> /tmp/bootrun.log)",
+      "Bash(nohup env SPLUNK_TOKEN='eyJraWQiOiJzcGx1bmsuc2VjcmV0IiwiYWxnIjoiSFM1MTIiLCJ2ZXIiOiJ2MiIsInR0eXAiOiJzdGF0aWMifQ.eyJpc3MiOiJhZG1pbiBmcm9tIDk3OTFkZjc1NjhlNSIsInN1YiI6ImFkbWluIiwiYXVkIjoidHgtcmVjb3ZlcnktYXBwIiwiaWRwIjoiU3BsdW5rIiwianRpIjoiZjA5OGM1NGUyNzc1NzgzNjMyMzFkNzMzODU3MWU1OGI2MDZiZGY3YzBjNjlmOWNmOGI3NmZjOGYwMzdkYjY4NyIsImlhdCI6MTc4MTA4Njg5MSwiZXhwIjoxNzgzNjc4ODkxLCJuYnIiOjE3ODEwODY4OTF9.5piaJHz5cm8aDwNm4O8xYzm7vTbX_LShjq5RTOnxm5LievohcrQ9O_HhKjLg96ECOhjmr85GHh3wUvx9u-Ktpg' DB_USER=appuser DB_PASSWORD=appuser ./gradlew bootRun)",
+      "Bash(disown)",
+      "Bash(pkill -f \"GradleDaemon.*bootRun\")"
+    ]
+  }
+}

@@ -21,7 +21,7 @@ public record SplunkJobStatusResponse(List<Entry> entry) {
     public record Content(
             @JsonProperty("isDone") boolean isDone,
             @JsonProperty("dispatchState") String dispatchState,
-            @JsonProperty("resultCount") long resultCount
+            @JsonProperty("resultCount") Long resultCount
     ) {
     }
 

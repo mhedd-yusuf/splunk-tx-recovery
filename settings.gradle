@@ -1,1 +1,80 @@
+// ===================================================================
+// Repository resolution: company Nexus first, public mirrors as fallback.
+//
+// How it works
+//   * Gradle queries repos in declared order. First repo that returns
+//     a hit for an artifact wins.
+//   * Nexus blocks are added ONLY when nexusUrl is configured (env var
+//     NEXUS_URL or Gradle property nexusUrl). If not set, the build
+//     resolves directly from public mirrors — no slow lookup against a
+//     bogus host.
+//   * Credentials come from Gradle properties / env vars and are NEVER
+//     committed. Put them in ~/.gradle/gradle.properties (user scope),
+//     or export NEXUS_USERNAME / NEXUS_PASSWORD.
+//   * All resolved artifacts are cached in ~/.gradle/caches/modules-2/
+//     automatically. mavenLocal() is queried first so anything you've
+//     `mvn install`-ed into ~/.m2/repository is also picked up.
+//
+// Pin
+//   repositoriesMode = FAIL_ON_PROJECT_REPOS prevents any sub-build.gradle
+//   from sneaking in a different repo set. Centralised by design.
+// ===================================================================
+
+pluginManagement {
+    def nexusUrl  = System.getenv('NEXUS_URL')      ?: providers.gradleProperty('nexusUrl').getOrNull()
+    def nexusUser = System.getenv('NEXUS_USERNAME') ?: providers.gradleProperty('nexusUsername').getOrNull()
+    def nexusPass = System.getenv('NEXUS_PASSWORD') ?: providers.gradleProperty('nexusPassword').getOrNull()
+
+    repositories {
+        if (nexusUrl) {
+            maven {
+                name = 'companyNexusPlugins'
+                url  = uri(nexusUrl)
+                if (nexusUser && nexusPass) {
+                    credentials {
+                        username = nexusUser
+                        password = nexusPass
+                    }
+                }
+            }
+        }
+        gradlePluginPortal()
+        mavenCentral()
+    }
+}
+
+// NOTE: Java 25 toolchain provisioning.
+//   Gradle 9.x auto-detects local JDKs via OS package managers (brew,
+//   asdf, SDKMAN, jenv) and via JAVA_HOME / -Porg.gradle.java.installations.paths.
+//   If no JDK 25 is found locally the build will fail with a clear
+//   toolchain message — install via:
+//       brew install --cask temurin@25      # macOS
+//       sdk install java 25-tem             # SDKMAN
+//   Auto-download via the foojay plugin is intentionally NOT enabled
+//   here — corporate Nexus setups usually block the foojay CDN.
+
+dependencyResolutionManagement {
+    def nexusUrl  = System.getenv('NEXUS_URL')      ?: providers.gradleProperty('nexusUrl').getOrNull()
+    def nexusUser = System.getenv('NEXUS_USERNAME') ?: providers.gradleProperty('nexusUsername').getOrNull()
+    def nexusPass = System.getenv('NEXUS_PASSWORD') ?: providers.gradleProperty('nexusPassword').getOrNull()
+
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+    repositories {
+        mavenLocal()
+        if (nexusUrl) {
+            maven {
+                name = 'companyNexus'
+                url  = uri(nexusUrl)
+                if (nexusUser && nexusPass) {
+                    credentials {
+                        username = nexusUser
+                        password = nexusPass
+                    }
+                }
+            }
+        }
+        mavenCentral()
+    }
+}
+
 rootProject.name = 'splunk-tx-recovery'

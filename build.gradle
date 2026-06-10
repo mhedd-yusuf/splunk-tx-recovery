@@ -1,7 +1,7 @@
 plugins {
     id 'java'
-    id 'org.springframework.boot' version '3.4.3'
-    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.springframework.boot'              version '4.0.6'
+    id 'io.spring.dependency-management'       version '1.1.7'
 }
 
 group   = 'com.example'
@@ -9,24 +9,36 @@ version = '0.1.0-SNAPSHOT'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
-repositories {
-    mavenCentral()
+// Emit Java 24 bytecode (class file major version 68) even though we RUN on
+// JDK 25. Spring Framework 7's bundled ASM (Spring Boot 4.0.6) does not yet
+// know class file version 69 — startup component scan throws
+// "Unsupported class file major version 69" on its own main class.
+// Remove this once Spring Boot ships ASM 9.9+ (likely Boot 4.0.7 / 4.1.x).
+tasks.withType(JavaCompile).configureEach {
+    options.release = 24
 }
+
+// Repositories are declared centrally in settings.gradle
+// (dependencyResolutionManagement) — do NOT redeclare here.
 
 ext {
-    resilience4jVersion = '2.2.0'
-    shedlockVersion     = '5.16.0'
+    // Resilience4j 2.x targets Spring Boot 3. The 2.3.x line picks up the
+    // Spring Boot 4 starter; if your Nexus only has older versions, drop
+    // to 2.2.0 and wire CircuitBreaker / Retry beans manually.
+    resilience4jVersion    = '2.3.0'
+    shedlockVersion        = '7.7.0'
     logstashLogbackVersion = '8.0'
-    mockwebserverVersion = '4.12.0'
-    ojdbcVersion        = '23.6.0.24.10'
+    mockwebserverVersion   = '4.12.0'
+    ojdbcVersion           = '23.6.0.24.10'
 }
 
-// Spring Boot 3.4 pins Mockito 5.14 / ByteBuddy 1.15 which do not know JDK 25
-// bytecode. Override so unit tests pass on JDK 25 (irrelevant if running on 21).
+// JDK-25 compatibility: keep an explicit override so the build is stable
+// even if a Spring Boot 4 patch revs Mockito downward. Drop these once
+// you've confirmed the Boot 4 BOM ships Mockito >= 5.18 / ByteBuddy >= 1.17.6.
 dependencyManagement {
     dependencies {
         dependency 'org.mockito:mockito-core:5.18.0'
@@ -37,7 +49,7 @@ dependencyManagement {
 }
 
 dependencies {
-    // Web + WebClient (WebFlux is included only for WebClient; the server is reactive Netty)
+    // Web + WebClient (WebFlux carries WebClient; server is reactive Netty)
     implementation 'org.springframework.boot:spring-boot-starter-webflux'
 
     // Persistence: Spring Data JDBC (no JPA)
@@ -54,11 +66,12 @@ dependencies {
     // Oracle JDBC
     implementation "com.oracle.database.jdbc:ojdbc11:${ojdbcVersion}"
 
-    // Flyway with Oracle support (Oracle moved to a separate module in Flyway 10)
+    // Flyway (Oracle support is a separate module in 10.x+)
     implementation 'org.flywaydb:flyway-core'
     implementation 'org.flywaydb:flyway-database-oracle'
 
-    // Resilience4j
+    // Resilience4j (Spring Boot 4 starter when 2.3+ resolves; otherwise
+    // bump nothing and hand-wire — see ext.resilience4jVersion comment).
     implementation "io.github.resilience4j:resilience4j-spring-boot3:${resilience4jVersion}"
     implementation "io.github.resilience4j:resilience4j-reactor:${resilience4jVersion}"
 
@@ -69,7 +82,7 @@ dependencies {
     // Structured JSON logging
     implementation "net.logstash.logback:logstash-logback-encoder:${logstashLogbackVersion}"
 
-    // ConfigurationProperties IDE/metadata support
+    // @ConfigurationProperties IDE/metadata support
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
 
     // -------- Test --------
@@ -80,9 +93,6 @@ dependencies {
     testImplementation 'org.testcontainers:oracle-free:1.20.4'
 }
 
-// By default `test` runs ONLY unit tests; integration tests tagged
-// @Tag("integration") are heavy (Testcontainers Oracle XE: 1-2 min cold start)
-// and are gated behind a separate `integrationTest` task.
 test {
     useJUnitPlatform {
         excludeTags 'integration'
@@ -105,4 +115,4 @@ tasks.register('integrationTest', Test) {
     }
 }
 
-check.dependsOn 'test'   // integrationTest is opt-in via `gradle integrationTest`
+check.dependsOn 'test'

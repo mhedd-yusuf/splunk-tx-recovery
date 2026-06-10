@@ -82,9 +82,11 @@ See [`docs/configuration.md`](docs/configuration.md) for every property.
 
 ## Architecture & runbook
 
+- [`docs/overview.md`](docs/overview.md) — plain-English "what does this service do?" + why ShedLock is wired in
 - [`docs/design.md`](docs/design.md) — pipeline, watermark semantics, MERGE rationale, out-of-scope
 - [`docs/code-walkthrough.md`](docs/code-walkthrough.md) — annotated tour of every layer, with sequence diagrams
 - [`docs/runbook.md`](docs/runbook.md) — manual watermark reset, backfill, "is this transaction missing?"
 - [`docs/database-access.md`](docs/database-access.md) — connect to Oracle, verify data, watermark/ShedLock inspection
 - [`docs/diagrams/`](docs/diagrams/) — Mermaid sources (LucidChart-importable)
 - [`docs/copilot-prompt.md`](docs/copilot-prompt.md) — self-contained prompt to recreate this project with GitHub Copilot
+- [`docs/build-and-nexus.md`](docs/build-and-nexus.md) — Java 25 / Spring Boot 4.0.6 / Gradle 9.5 setup + company Nexus configuration
